@@ -1,4 +1,128 @@
-import { useState, useEffect } from "react";
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AI Signal">
+<title>AI/SIGNAL</title>
+<style>
+:root {
+  --bg:#0a0c10; --s1:#111318; --s2:#181b22; --bd:#1e2330;
+  --acc:#00e5a0; --blue:#60a5fa; --purple:#c084fc;
+  --orange:#fb923c; --indigo:#818cf8;
+  --text:#e8eaf0; --muted:#5a6070; --dim:#2a3045;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,'Helvetica Neue',sans-serif;min-height:100vh}
+a{text-decoration:none;color:inherit}
+button{font-family:inherit;cursor:pointer}
+
+.hdr{position:sticky;top:0;z-index:99;background:rgba(10,12,16,.97);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(–bd);padding:14px 16px 10px;padding-top:calc(14px + env(safe-area-inset-top))}
+.hdr-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.logo{font-family:‘Courier New’,monospace;font-size:19px;font-weight:700;color:var(–acc)}
+.logo em{color:var(–muted);font-style:normal;font-weight:400}
+.datepill{font-family:‘Courier New’,monospace;font-size:10px;color:var(–muted);background:var(–s1);border:1px solid var(–bd);padding:4px 9px;border-radius:5px}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex-shrink:0;font-size:11px;font-weight:500;padding:5px 13px;border-radius:20px;border:1px solid var(–bd);background:var(–s1);color:var(–muted);transition:all .15s;white-space:nowrap;outline:none}
+.chip.on{background:var(–acc);color:var(–bg);border-color:var(–acc);font-weight:700}
+
+.toolbar{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px}
+.slbl{font-family:‘Courier New’,monospace;font-size:10px;color:var(–muted);text-transform:uppercase;letter-spacing:1.5px}
+.rbtn{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(–blue);background:none;border:1px solid var(–bd);border-radius:7px;padding:7px 13px;transition:all .15s;outline:none}
+.rbtn:active{transform:scale(.96)}
+.rbtn:disabled{opacity:.5}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinning{animation:spin .8s linear infinite}
+
+.status{display:flex;align-items:center;gap:7px;padding:0 16px 14px;font-size:12px;color:var(–muted);min-height:36px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(–acc);flex-shrink:0;transition:background .3s}
+.dot.pulse{animation:dpulse 1.2s ease-in-out infinite}
+.dot.err{background:#ef4444}
+@keyframes dpulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.8)}}
+
+.list{padding:0 16px 40px;max-width:520px;margin:0 auto}
+
+.card{display:block;background:var(–s1);border:1px solid var(–bd);border-radius:13px;padding:14px;margin-bottom:10px;transition:background .15s;animation:fu .3s ease both}
+.card:active{background:var(–s2);transform:scale(.985)}
+@keyframes fu{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+
+.cmeta{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.tag{font-family:‘Courier New’,monospace;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;padding:3px 7px;border-radius:4px;border:1px solid;flex-shrink:0}
+.t-agents{background:#0d2218;color:var(–acc);border-color:rgba(0,229,160,.25)}
+.t-ai{background:#0d1a2e;color:var(–blue);border-color:rgba(96,165,250,.25)}
+.t-code{background:#1e0d2e;color:var(–purple);border-color:rgba(192,132,252,.25)}
+.t-research{background:#2a1a08;color:var(–orange);border-color:rgba(251,146,60,.25)}
+.t-news{background:#0d0d2e;color:var(–indigo);border-color:rgba(129,140,248,.25)}
+.src{font-size:10px;color:var(–muted);font-weight:600}
+.rank{margin-left:auto;font-family:‘Courier New’,monospace;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;flex-shrink:0}
+.rtop{color:var(–orange);background:rgba(251,146,60,.08);border:1px solid rgba(251,146,60,.2)}
+.rreg{color:var(–acc);background:rgba(0,229,160,.07);border:1px solid rgba(0,229,160,.15)}
+
+.ctitle{font-size:14px;font-weight:600;color:var(–text);line-height:1.4;margin-bottom:6px}
+.cdesc{font-size:12px;color:var(–muted);line-height:1.55;margin-bottom:10px}
+.cfoot{display:flex;align-items:center;justify-content:space-between}
+.curl{font-size:10px;color:var(–dim);font-family:‘Courier New’,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px}
+.carr{color:var(–dim);font-size:15px}
+
+.skelcard{background:var(–s1);border:1px solid var(–bd);border-radius:13px;padding:14px;margin-bottom:10px}
+.skel{border-radius:4px;margin-bottom:7px;background:linear-gradient(90deg,var(–bd) 25%,var(–s2) 50%,var(–bd) 75%);background-size:200% 100%;animation:shim 1.4s infinite}
+@keyframes shim{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+.empty{text-align:center;padding:52px 20px;color:var(–muted)}
+.eico{font-size:38px;margin-bottom:12px;opacity:.35}
+.ettl{font-size:15px;font-weight:600;color:var(–text);margin-bottom:7px}
+.esub{font-size:13px;line-height:1.6}
+
+.foot{text-align:center;padding:8px 0 4px;font-size:11px;color:var(–dim);font-family:‘Courier New’,monospace}
+.dbg{margin:0 16px 12px;background:var(–s1);border:1px solid var(–bd);border-radius:10px;padding:12px;font-size:11px;font-family:‘Courier New’,monospace;color:var(–muted);max-height:200px;overflow-y:auto;display:none}
+.dbg.show{display:block}
+.dbg-row{margin-bottom:3px}
+.dbg-ok{color:var(–acc)}
+.dbg-err{color:#ef4444}
+.dbgbtn{background:none;border:1px solid var(–bd);border-radius:5px;padding:4px 10px;font-size:10px;color:var(–muted);font-family:‘Courier New’,monospace}
+</style>
+
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-row">
+    <div class="logo">AI<em>/</em>SIGNAL</div>
+    <div class="datepill" id="datepill">—</div>
+  </div>
+  <div class="chips" id="chips"></div>
+</div>
+
+<div class="toolbar">
+  <span class="slbl">Top sources today</span>
+  <button class="rbtn" id="rbtn" onclick="loadAll()">
+    <svg id="rico" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12a9 9 0 11-6.219-8.56"/>
+    </svg>
+    <span id="rlbl">Refresh</span>
+  </button>
+</div>
+
+<div class="status">
+  <div class="dot pulse" id="dot"></div>
+  <span id="stxt">Loading…</span>
+</div>
+
+<div class="dbg" id="dbg"></div>
+<div class="list" id="list"></div>
+
+<script>
+// ── Safari-safe timeout: NO AbortSignal.timeout() ──────────────────────────
+function fetchWithTimeout(url, ms) {
+  return Promise.race([
+    fetch(url),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms))
+  ]);
+}
 
 const FEEDS = [
   { rss:'https://simonwillison.net/atom/everything/',         source:'Simon Willison',  cat:'code'     },
@@ -9,235 +133,192 @@ const FEEDS = [
   { rss:'https://www.deeplearning.ai/the-batch/feed/',       source:'The Batch',       cat:'news'     },
   { rss:'https://lilianweng.github.io/index.xml',            source:'Lilian Weng',     cat:'research' },
   { rss:'https://www.latent.space/feed',                     source:'Latent Space',    cat:'agents'   },
+  { rss:'https://bair.berkeley.edu/blog/feed.xml',           source:'BAIR Blog',       cat:'research' },
   { rss:'https://e2b.dev/blog/rss.xml',                      source:'E2B',             cat:'agents'   },
+  { rss:'https://newsletter.pragmaticengineer.com/feed',     source:'Pragmatic Eng.',  cat:'code'     },
+  { rss:'https://www.aisnakeoil.com/feed',                   source:'AI Snake Oil',    cat:'news'     },
   { rss:'https://machinelearningmastery.com/feed/',          source:'ML Mastery',      cat:'ai'       },
+  { rss:'https://feeds.feedburner.com/blogspot/gJZg',        source:'Google AI Blog',  cat:'research' },
 ];
 
 const CATS = ['all','agents','ai','code','research','news'];
 const CLBL = {all:'All',agents:'Agents',ai:'AI Research',code:'AI Code',research:'Papers',news:'News'};
-const TAG = {
-  agents:{bg:'#0d2218',color:'#00e5a0',border:'rgba(0,229,160,.25)'},
-  ai:    {bg:'#0d1a2e',color:'#60a5fa',border:'rgba(96,165,250,.25)'},
-  code:  {bg:'#1e0d2e',color:'#c084fc',border:'rgba(192,132,252,.25)'},
-  research:{bg:'#2a1a08',color:'#fb923c',border:'rgba(251,146,60,.25)'},
-  news:  {bg:'#0d0d2e',color:'#818cf8',border:'rgba(129,140,248,.25)'},
-};
 
-function fetchWithTimeout(url, ms=10000) {
-  return Promise.race([
-    fetch(url),
-    new Promise((_,rej) => setTimeout(()=>rej(new Error('Timeout')), ms))
-  ]);
+let allItems = [];
+let activeFilter = 'all';
+let debugLines = [];
+
+document.getElementById('datepill').textContent =
+  new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}).toUpperCase();
+
+CATS.forEach(cat => {
+  const el = document.createElement('button');
+  el.className = 'chip'+(cat==='all'?' on':'');
+  el.textContent = CLBL[cat];
+  el.onclick = () => {
+    document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+    el.classList.add('on');
+    activeFilter = cat;
+    render();
+  };
+  document.getElementById('chips').appendChild(el);
+});
+
+function dbgLog(msg, type) {
+  debugLines.push({msg, type});
+  const el = document.getElementById('dbg');
+  el.innerHTML = debugLines.map(l =>
+    `<div class="dbg-row ${l.type?'dbg-'+l.type:''}">${l.msg}</div>`
+  ).join('');
+  el.scrollTop = el.scrollHeight;
 }
 
-function stripHtml(s){ return (s||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim(); }
+function stripHtml(s) {
+  return (s||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+}
+
+// ── rss2json.com — JSON API, CORS-friendly ─────────────────────────────────
+async function fetchViaRss2json(feed) {
+  const url = 'https://api.rss2json.com/v1/api.json?rss_url=' +
+              encodeURIComponent(feed.rss) + '&count=5';
+  const r = await fetchWithTimeout(url, 10000);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const d = await r.json();
+  if (d.status !== 'ok') throw new Error(d.message || 'rss2json error');
+  const host = feed.rss.replace(/^https?:\/\/(www\.)?/,'').split('/')[0];
+  return (d.items||[]).map(it => ({
+    title: it.title || '',
+    link:  it.link  || it.guid || '',
+    desc:  stripHtml(it.description || it.content || '').slice(0, 180),
+    date:  it.pubDate || '',
+    source: feed.source, cat: feed.cat, displayUrl: host
+  })).filter(i => i.title && i.link);
+}
+
+// ── corsproxy.io — raw XML fallback ───────────────────────────────────────
+async function fetchViaProxy(feed) {
+  const url = 'https://corsproxy.io/?' + encodeURIComponent(feed.rss);
+  const r = await fetchWithTimeout(url, 10000);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const text = await r.text();
+  const xml = new DOMParser().parseFromString(text, 'text/xml');
+  const entries = [...xml.querySelectorAll('item'), ...xml.querySelectorAll('entry')];
+  const host = feed.rss.replace(/^https?:\/\/(www\.)?/,'').split('/')[0];
+  return entries.slice(0,5).map(e => {
+    const g = t => e.querySelector(t)?.textContent?.trim() || '';
+    const link = e.querySelector('link')?.getAttribute('href') || g('link');
+    return {
+      title: g('title'), link,
+      desc: stripHtml(g('description')||g('summary')||g('content')).slice(0,180),
+      date: g('pubDate')||g('published')||g('updated')||'',
+      source: feed.source, cat: feed.cat, displayUrl: host
+    };
+  }).filter(i => i.title && i.link);
+}
 
 async function fetchFeed(feed) {
-  const url = 'https://api.rss2json.com/v1/api.json?rss_url='+encodeURIComponent(feed.rss)+'&count=5';
-  const r = await fetchWithTimeout(url);
-  if (!r.ok) throw new Error('HTTP '+r.status);
-  const d = await r.json();
-  if (d.status !== 'ok') throw new Error(d.message||'error');
-  const host = feed.rss.replace(/^https?:\/\/(www\.)?/,'').split('/')[0];
-  return (d.items||[]).map(it=>({
-    title: it.title||'',
-    link:  it.link||it.guid||'',
-    desc:  stripHtml(it.description||it.content||'').slice(0,160),
-    date:  it.pubDate||'',
-    source:feed.source, cat:feed.cat, host
-  })).filter(i=>i.title&&i.link);
-}
-
-function Skeleton() {
-  return (
-    <div style={{background:'#111318',border:'1px solid #1e2330',borderRadius:13,padding:14,marginBottom:10}}>
-      {[[70,16],[220,14],[160,14],[300,11],[200,11]].map(([w,h],i)=>(
-        <div key={i} style={{width:w,height:h,borderRadius:4,marginBottom:7,
-          background:'linear-gradient(90deg,#1e2330 25%,#181b22 50%,#1e2330 75%)',
-          backgroundSize:'200% 100%',animation:'shim 1.4s infinite'}}/>
-      ))}
-    </div>
-  );
-}
-
-function Card({item, rank}) {
-  const t = TAG[item.cat]||TAG.ai;
-  const isTop = rank < 3;
-  return (
-    <a href={item.link} target="_blank" rel="noopener noreferrer"
-      style={{display:'block',background:'#111318',border:'1px solid #1e2330',
-        borderRadius:13,padding:14,marginBottom:10,textDecoration:'none',
-        animation:`fu 0.3s ease ${rank*40}ms both`}}>
-      <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8,flexWrap:'wrap'}}>
-        <span style={{fontSize:9,fontWeight:700,fontFamily:'monospace',textTransform:'uppercase',
-          letterSpacing:'.8px',padding:'3px 7px',borderRadius:4,
-          background:t.bg,color:t.color,border:`1px solid ${t.border}`}}>
-          {item.cat==='ai'?'AI':item.cat==='research'?'RESEARCH':item.cat.toUpperCase()}
-        </span>
-        <span style={{fontSize:10,color:'#5a6070',fontWeight:600}}>{item.source}</span>
-        <span style={{marginLeft:'auto',fontFamily:'monospace',fontSize:10,fontWeight:700,
-          padding:'2px 7px',borderRadius:4,flexShrink:0,
-          color:isTop?'#fb923c':'#00e5a0',
-          background:isTop?'rgba(251,146,60,.08)':'rgba(0,229,160,.07)',
-          border:isTop?'1px solid rgba(251,146,60,.2)':'1px solid rgba(0,229,160,.15)'}}>
-          {isTop?`★ #${rank+1}`:`#${rank+1}`}
-        </span>
-      </div>
-      <div style={{fontSize:14,fontWeight:600,color:'#e8eaf0',lineHeight:1.4,marginBottom:6}}>{item.title}</div>
-      {item.desc && <div style={{fontSize:12,color:'#5a6070',lineHeight:1.55,marginBottom:10}}>{item.desc}</div>}
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-        <span style={{fontSize:10,color:'#2a3045',fontFamily:'monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:200}}>{item.host}</span>
-        <span style={{color:'#2a3045',fontSize:15}}>→</span>
-      </div>
-    </a>
-  );
-}
-
-export default function AISignal() {
-  const [items, setItems]   = useState([]);
-  const [filter, setFilter] = useState('all');
-  const [status, setStatus] = useState('loading');
-  const [info, setInfo]     = useState('Loading…');
-  const [logs, setLogs]     = useState([]);
-  const [showLog, setShowLog] = useState(false);
-
-  const today = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}).toUpperCase();
-
-  async function load() {
-    setStatus('loading'); setInfo('Fetching sources…');
-    setLogs([]); setShowLog(false);
-
-    const newLogs = [];
-    const raw = [];
-    const BATCH = 3;
-
-    for (let i=0; i<FEEDS.length; i+=BATCH) {
-      const batch = FEEDS.slice(i,i+BATCH);
-      setInfo(`Fetching ${Math.min(i+BATCH,FEEDS.length)}/${FEEDS.length}…`);
-      const res = await Promise.allSettled(batch.map(f =>
-        fetchFeed(f).then(its => { newLogs.push({t:'ok',m:`✓ ${f.source} — ${its.length}`}); return its; })
-                    .catch(e  => { newLogs.push({t:'err',m:`✗ ${f.source}: ${e.message}`}); return []; })
-      ));
-      res.forEach(r => { if(r.status==='fulfilled') raw.push(...r.value); });
-      setLogs([...newLogs]);
+  try {
+    const items = await fetchViaRss2json(feed);
+    dbgLog('✓ ' + feed.source + ' — ' + items.length + ' items', 'ok');
+    return items;
+  } catch(e1) {
+    try {
+      const items = await fetchViaProxy(feed);
+      dbgLog('✓ ' + feed.source + ' (proxy) — ' + items.length, 'ok');
+      return items;
+    } catch(e2) {
+      dbgLog('✗ ' + feed.source + ': ' + e2.message, 'err');
+      return [];
     }
+  }
+}
 
-    const seen = new Set();
-    const deduped = raw
-      .filter(it => { if(seen.has(it.title)) return false; seen.add(it.title); return true; })
-      .sort((a,b) => new Date(b.date||0)-new Date(a.date||0));
+function showSkeletons() {
+  document.getElementById('list').innerHTML = Array.from({length:8}, () => `
+    <div class="skelcard">
+      <div class="skel" style="width:70px;height:16px"></div>
+      <div class="skel" style="width:88%;height:14px"></div>
+      <div class="skel" style="width:62%;height:14px"></div>
+      <div class="skel" style="width:100%;height:11px"></div>
+      <div class="skel" style="width:72%;height:11px"></div>
+    </div>`).join('');
+}
 
-    setItems(deduped);
-    const ok   = newLogs.filter(l=>l.t==='ok').length;
-    const fail = newLogs.filter(l=>l.t==='err').length;
-    if (deduped.length===0) { setStatus('error'); setInfo(`0 articles — ${fail} feeds failed`); setShowLog(true); }
-    else { setStatus('done'); setInfo(`${deduped.length} articles · ${ok} ok · ${fail} failed`); }
+function render() {
+  const list = document.getElementById('list');
+  const items = activeFilter === 'all' ? allItems : allItems.filter(i => i.cat === activeFilter);
+  if (!items.length) {
+    list.innerHTML = `<div class="empty">
+      <div class="eico">◌</div>
+      <div class="ettl">${activeFilter==='all' ? 'No articles loaded' : 'Nothing in this category'}</div>
+      <div class="esub">${activeFilter==='all' ? 'Check the debug log below.' : 'Try another filter.'}</div>
+    </div>`;
+    return;
+  }
+  const now = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  list.innerHTML = items.map((it,i) => `
+    <a class="card" href="${it.link}" target="_blank" rel="noopener" style="animation-delay:${i*35}ms">
+      <div class="cmeta">
+        <span class="tag t-${it.cat}">${it.cat==='ai'?'AI':it.cat==='research'?'RESEARCH':it.cat.toUpperCase()}</span>
+        <span class="src">${it.source}</span>
+        <span class="rank ${i<3?'rtop':'rreg'}">${i<3?'★ #'+(i+1):'#'+(i+1)}</span>
+      </div>
+      <div class="ctitle">${it.title}</div>
+      ${it.desc ? `<div class="cdesc">${it.desc}${it.desc.length>=178?'…':''}</div>` : ''}
+      <div class="cfoot">
+        <span class="curl">${it.displayUrl}</span>
+        <span class="carr">→</span>
+      </div>
+    </a>`).join('') +
+  `<div class="foot">AI/SIGNAL · ${items.length} articles · ${now}</div>
+   <div class="foot" style="padding-bottom:20px">
+     <button class="dbgbtn" onclick="document.getElementById('dbg').classList.toggle('show')">debug log</button>
+   </div>`;
+}
+
+async function loadAll() {
+  const btn=document.getElementById('rbtn'), lbl=document.getElementById('rlbl'),
+        ico=document.getElementById('rico'), dot=document.getElementById('dot'),
+        stxt=document.getElementById('stxt'), dbgEl=document.getElementById('dbg');
+
+  btn.disabled=true; lbl.textContent='Loading…';
+  ico.classList.add('spinning'); dot.className='dot pulse';
+  debugLines=[]; dbgEl.innerHTML=''; dbgEl.classList.remove('show');
+  showSkeletons();
+
+  const BATCH = 3;
+  const raw = [];
+  for (let i=0; i<FEEDS.length; i+=BATCH) {
+    const batch = FEEDS.slice(i, i+BATCH);
+    stxt.textContent = 'Fetching ' + Math.min(i+BATCH, FEEDS.length) + '/' + FEEDS.length + '…';
+    const res = await Promise.allSettled(batch.map(f => fetchFeed(f)));
+    res.forEach(r => { if (r.status==='fulfilled') raw.push(...r.value); });
   }
 
-  useEffect(()=>{ load(); },[]);
+  const seen = new Set();
+  allItems = raw
+    .filter(it => { if (seen.has(it.title)) return false; seen.add(it.title); return true; })
+    .sort((a,b) => new Date(b.date||0) - new Date(a.date||0));
 
-  const filtered = filter==='all' ? items : items.filter(i=>i.cat===filter);
+  render();
 
-  return (
-    <div style={{background:'#0a0c10',minHeight:'100vh',color:'#e8eaf0',fontFamily:'-apple-system,sans-serif'}}>
-      <style>{`
-        @keyframes shim{0%{background-position:200% 0}100%{background-position:-200% 0}}
-        @keyframes fu{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes spin{to{transform:rotate(360deg)}}
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-        *{box-sizing:border-box}
-        a:active{opacity:.7}
-      `}</style>
+  const ok   = debugLines.filter(l=>l.type==='ok').length;
+  const fail = debugLines.filter(l=>l.type==='err').length;
 
-      {/* HEADER */}
-      <div style={{position:'sticky',top:0,zIndex:99,background:'rgba(10,12,16,.97)',
-        backdropFilter:'blur(16px)',WebkitBackdropFilter:'blur(16px)',
-        borderBottom:'1px solid #1e2330',padding:'14px 16px 10px'}}>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-          <div style={{fontFamily:'monospace',fontSize:19,fontWeight:700,color:'#00e5a0'}}>
-            AI<span style={{color:'#5a6070',fontWeight:400}}>/</span>SIGNAL
-          </div>
-          <div style={{fontFamily:'monospace',fontSize:10,color:'#5a6070',
-            background:'#111318',border:'1px solid #1e2330',padding:'4px 9px',borderRadius:5}}>
-            {today}
-          </div>
-        </div>
-        <div style={{display:'flex',gap:6,overflowX:'auto',paddingBottom:2,scrollbarWidth:'none'}}>
-          {CATS.map(cat=>(
-            <button key={cat} onClick={()=>setFilter(cat)} style={{
-              flexShrink:0,fontSize:11,fontWeight:filter===cat?700:500,
-              padding:'5px 13px',borderRadius:20,whiteSpace:'nowrap',outline:'none',cursor:'pointer',
-              border:filter===cat?'1px solid #00e5a0':'1px solid #1e2330',
-              background:filter===cat?'#00e5a0':'#111318',
-              color:filter===cat?'#0a0c10':'#5a6070',transition:'all .15s'}}>
-              {CLBL[cat]}
-            </button>
-          ))}
-        </div>
-      </div>
+  if (allItems.length === 0) {
+    dot.className = 'dot err';
+    stxt.textContent = '0 articles — ' + fail + ' feeds failed';
+    dbgEl.classList.add('show');
+  } else {
+    dot.className = 'dot';
+    stxt.textContent = allItems.length + ' articles · ' + ok + ' ok · ' + fail + ' failed';
+  }
 
-      {/* TOOLBAR */}
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 16px 8px'}}>
-        <span style={{fontFamily:'monospace',fontSize:10,color:'#5a6070',textTransform:'uppercase',letterSpacing:'1.5px'}}>
-          Top sources today
-        </span>
-        <button onClick={load} disabled={status==='loading'} style={{
-          display:'flex',alignItems:'center',gap:6,fontSize:12,fontWeight:500,color:'#60a5fa',
-          background:'none',border:'1px solid #1e2330',borderRadius:7,padding:'7px 13px',
-          cursor:'pointer',opacity:status==='loading'?.5:1,outline:'none'}}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-            style={{animation:status==='loading'?'spin .8s linear infinite':'none'}}>
-            <path d="M21 12a9 9 0 11-6.219-8.56"/>
-          </svg>
-          {status==='loading'?'Loading…':'Refresh'}
-        </button>
-      </div>
-
-      {/* STATUS */}
-      <div style={{display:'flex',alignItems:'center',gap:7,padding:'0 16px 14px',fontSize:12,color:'#5a6070'}}>
-        <div style={{width:6,height:6,borderRadius:'50%',flexShrink:0,
-          background:status==='error'?'#ef4444':'#00e5a0',
-          animation:status==='loading'?'pulse 1.2s ease-in-out infinite':'none'}}/>
-        <span style={{color:status==='error'?'#ef4444':'#5a6070'}}>{info}</span>
-      </div>
-
-      {/* DEBUG LOG */}
-      {showLog && (
-        <div style={{margin:'0 16px 12px',background:'#111318',border:'1px solid #1e2330',
-          borderRadius:10,padding:12,fontSize:11,fontFamily:'monospace',
-          maxHeight:180,overflowY:'auto'}}>
-          {logs.map((l,i)=>(
-            <div key={i} style={{marginBottom:3,color:l.t==='ok'?'#00e5a0':'#ef4444'}}>{l.m}</div>
-          ))}
-        </div>
-      )}
-
-      {/* CARDS */}
-      <div style={{padding:'0 16px 40px',maxWidth:520,margin:'0 auto'}}>
-        {status==='loading' && items.length===0
-          ? Array.from({length:6},(_,i)=><Skeleton key={i}/>)
-          : filtered.length===0
-            ? <div style={{textAlign:'center',padding:'52px 20px',color:'#5a6070'}}>
-                <div style={{fontSize:38,marginBottom:12,opacity:.35}}>◌</div>
-                <div style={{fontSize:15,fontWeight:600,color:'#e8eaf0',marginBottom:7}}>
-                  {status==='error'?'Could not load':'Nothing here'}
-                </div>
-                <div style={{fontSize:13}}>
-                  {status==='error'?'Check connection and refresh':'Try another filter'}
-                </div>
-              </div>
-            : filtered.map((it,i)=><Card key={i} item={it} rank={i}/>)
-        }
-        {status==='done' && filtered.length>0 && (
-          <div style={{textAlign:'center',padding:'8px 0 16px',fontSize:11,color:'#2a3045',fontFamily:'monospace'}}>
-            <button onClick={()=>setShowLog(v=>!v)} style={{
-              background:'none',border:'1px solid #1e2330',borderRadius:5,
-              padding:'4px 10px',fontSize:10,color:'#5a6070',fontFamily:'monospace',cursor:'pointer'}}>
-              {showLog?'hide':'show'} debug log
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  btn.disabled=false; lbl.textContent='Refresh'; ico.classList.remove('spinning');
 }
+
+loadAll();
+</script>
+
+</body>
+</html>
