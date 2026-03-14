@@ -1,0 +1,243 @@
+import { useState, useEffect } from "react";
+
+const FEEDS = [
+  { rss:'https://simonwillison.net/atom/everything/',         source:'Simon Willison',  cat:'code'     },
+  { rss:'https://www.anthropic.com/rss.xml',                 source:'Anthropic',       cat:'ai'       },
+  { rss:'https://openai.com/blog/rss.xml',                   source:'OpenAI',          cat:'ai'       },
+  { rss:'https://huggingface.co/blog/feed.xml',              source:'Hugging Face',    cat:'research' },
+  { rss:'https://blog.langchain.dev/rss/',                   source:'LangChain',       cat:'agents'   },
+  { rss:'https://www.deeplearning.ai/the-batch/feed/',       source:'The Batch',       cat:'news'     },
+  { rss:'https://lilianweng.github.io/index.xml',            source:'Lilian Weng',     cat:'research' },
+  { rss:'https://www.latent.space/feed',                     source:'Latent Space',    cat:'agents'   },
+  { rss:'https://e2b.dev/blog/rss.xml',                      source:'E2B',             cat:'agents'   },
+  { rss:'https://machinelearningmastery.com/feed/',          source:'ML Mastery',      cat:'ai'       },
+];
+
+const CATS = ['all','agents','ai','code','research','news'];
+const CLBL = {all:'All',agents:'Agents',ai:'AI Research',code:'AI Code',research:'Papers',news:'News'};
+const TAG = {
+  agents:{bg:'#0d2218',color:'#00e5a0',border:'rgba(0,229,160,.25)'},
+  ai:    {bg:'#0d1a2e',color:'#60a5fa',border:'rgba(96,165,250,.25)'},
+  code:  {bg:'#1e0d2e',color:'#c084fc',border:'rgba(192,132,252,.25)'},
+  research:{bg:'#2a1a08',color:'#fb923c',border:'rgba(251,146,60,.25)'},
+  news:  {bg:'#0d0d2e',color:'#818cf8',border:'rgba(129,140,248,.25)'},
+};
+
+function fetchWithTimeout(url, ms=10000) {
+  return Promise.race([
+    fetch(url),
+    new Promise((_,rej) => setTimeout(()=>rej(new Error('Timeout')), ms))
+  ]);
+}
+
+function stripHtml(s){ return (s||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim(); }
+
+async function fetchFeed(feed) {
+  const url = 'https://api.rss2json.com/v1/api.json?rss_url='+encodeURIComponent(feed.rss)+'&count=5';
+  const r = await fetchWithTimeout(url);
+  if (!r.ok) throw new Error('HTTP '+r.status);
+  const d = await r.json();
+  if (d.status !== 'ok') throw new Error(d.message||'error');
+  const host = feed.rss.replace(/^https?:\/\/(www\.)?/,'').split('/')[0];
+  return (d.items||[]).map(it=>({
+    title: it.title||'',
+    link:  it.link||it.guid||'',
+    desc:  stripHtml(it.description||it.content||'').slice(0,160),
+    date:  it.pubDate||'',
+    source:feed.source, cat:feed.cat, host
+  })).filter(i=>i.title&&i.link);
+}
+
+function Skeleton() {
+  return (
+    <div style={{background:'#111318',border:'1px solid #1e2330',borderRadius:13,padding:14,marginBottom:10}}>
+      {[[70,16],[220,14],[160,14],[300,11],[200,11]].map(([w,h],i)=>(
+        <div key={i} style={{width:w,height:h,borderRadius:4,marginBottom:7,
+          background:'linear-gradient(90deg,#1e2330 25%,#181b22 50%,#1e2330 75%)',
+          backgroundSize:'200% 100%',animation:'shim 1.4s infinite'}}/>
+      ))}
+    </div>
+  );
+}
+
+function Card({item, rank}) {
+  const t = TAG[item.cat]||TAG.ai;
+  const isTop = rank < 3;
+  return (
+    <a href={item.link} target="_blank" rel="noopener noreferrer"
+      style={{display:'block',background:'#111318',border:'1px solid #1e2330',
+        borderRadius:13,padding:14,marginBottom:10,textDecoration:'none',
+        animation:`fu 0.3s ease ${rank*40}ms both`}}>
+      <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8,flexWrap:'wrap'}}>
+        <span style={{fontSize:9,fontWeight:700,fontFamily:'monospace',textTransform:'uppercase',
+          letterSpacing:'.8px',padding:'3px 7px',borderRadius:4,
+          background:t.bg,color:t.color,border:`1px solid ${t.border}`}}>
+          {item.cat==='ai'?'AI':item.cat==='research'?'RESEARCH':item.cat.toUpperCase()}
+        </span>
+        <span style={{fontSize:10,color:'#5a6070',fontWeight:600}}>{item.source}</span>
+        <span style={{marginLeft:'auto',fontFamily:'monospace',fontSize:10,fontWeight:700,
+          padding:'2px 7px',borderRadius:4,flexShrink:0,
+          color:isTop?'#fb923c':'#00e5a0',
+          background:isTop?'rgba(251,146,60,.08)':'rgba(0,229,160,.07)',
+          border:isTop?'1px solid rgba(251,146,60,.2)':'1px solid rgba(0,229,160,.15)'}}>
+          {isTop?`★ #${rank+1}`:`#${rank+1}`}
+        </span>
+      </div>
+      <div style={{fontSize:14,fontWeight:600,color:'#e8eaf0',lineHeight:1.4,marginBottom:6}}>{item.title}</div>
+      {item.desc && <div style={{fontSize:12,color:'#5a6070',lineHeight:1.55,marginBottom:10}}>{item.desc}</div>}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <span style={{fontSize:10,color:'#2a3045',fontFamily:'monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:200}}>{item.host}</span>
+        <span style={{color:'#2a3045',fontSize:15}}>→</span>
+      </div>
+    </a>
+  );
+}
+
+export default function AISignal() {
+  const [items, setItems]   = useState([]);
+  const [filter, setFilter] = useState('all');
+  const [status, setStatus] = useState('loading');
+  const [info, setInfo]     = useState('Loading…');
+  const [logs, setLogs]     = useState([]);
+  const [showLog, setShowLog] = useState(false);
+
+  const today = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}).toUpperCase();
+
+  async function load() {
+    setStatus('loading'); setInfo('Fetching sources…');
+    setLogs([]); setShowLog(false);
+
+    const newLogs = [];
+    const raw = [];
+    const BATCH = 3;
+
+    for (let i=0; i<FEEDS.length; i+=BATCH) {
+      const batch = FEEDS.slice(i,i+BATCH);
+      setInfo(`Fetching ${Math.min(i+BATCH,FEEDS.length)}/${FEEDS.length}…`);
+      const res = await Promise.allSettled(batch.map(f =>
+        fetchFeed(f).then(its => { newLogs.push({t:'ok',m:`✓ ${f.source} — ${its.length}`}); return its; })
+                    .catch(e  => { newLogs.push({t:'err',m:`✗ ${f.source}: ${e.message}`}); return []; })
+      ));
+      res.forEach(r => { if(r.status==='fulfilled') raw.push(...r.value); });
+      setLogs([...newLogs]);
+    }
+
+    const seen = new Set();
+    const deduped = raw
+      .filter(it => { if(seen.has(it.title)) return false; seen.add(it.title); return true; })
+      .sort((a,b) => new Date(b.date||0)-new Date(a.date||0));
+
+    setItems(deduped);
+    const ok   = newLogs.filter(l=>l.t==='ok').length;
+    const fail = newLogs.filter(l=>l.t==='err').length;
+    if (deduped.length===0) { setStatus('error'); setInfo(`0 articles — ${fail} feeds failed`); setShowLog(true); }
+    else { setStatus('done'); setInfo(`${deduped.length} articles · ${ok} ok · ${fail} failed`); }
+  }
+
+  useEffect(()=>{ load(); },[]);
+
+  const filtered = filter==='all' ? items : items.filter(i=>i.cat===filter);
+
+  return (
+    <div style={{background:'#0a0c10',minHeight:'100vh',color:'#e8eaf0',fontFamily:'-apple-system,sans-serif'}}>
+      <style>{`
+        @keyframes shim{0%{background-position:200% 0}100%{background-position:-200% 0}}
+        @keyframes fu{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+        *{box-sizing:border-box}
+        a:active{opacity:.7}
+      `}</style>
+
+      {/* HEADER */}
+      <div style={{position:'sticky',top:0,zIndex:99,background:'rgba(10,12,16,.97)',
+        backdropFilter:'blur(16px)',WebkitBackdropFilter:'blur(16px)',
+        borderBottom:'1px solid #1e2330',padding:'14px 16px 10px'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+          <div style={{fontFamily:'monospace',fontSize:19,fontWeight:700,color:'#00e5a0'}}>
+            AI<span style={{color:'#5a6070',fontWeight:400}}>/</span>SIGNAL
+          </div>
+          <div style={{fontFamily:'monospace',fontSize:10,color:'#5a6070',
+            background:'#111318',border:'1px solid #1e2330',padding:'4px 9px',borderRadius:5}}>
+            {today}
+          </div>
+        </div>
+        <div style={{display:'flex',gap:6,overflowX:'auto',paddingBottom:2,scrollbarWidth:'none'}}>
+          {CATS.map(cat=>(
+            <button key={cat} onClick={()=>setFilter(cat)} style={{
+              flexShrink:0,fontSize:11,fontWeight:filter===cat?700:500,
+              padding:'5px 13px',borderRadius:20,whiteSpace:'nowrap',outline:'none',cursor:'pointer',
+              border:filter===cat?'1px solid #00e5a0':'1px solid #1e2330',
+              background:filter===cat?'#00e5a0':'#111318',
+              color:filter===cat?'#0a0c10':'#5a6070',transition:'all .15s'}}>
+              {CLBL[cat]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* TOOLBAR */}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 16px 8px'}}>
+        <span style={{fontFamily:'monospace',fontSize:10,color:'#5a6070',textTransform:'uppercase',letterSpacing:'1.5px'}}>
+          Top sources today
+        </span>
+        <button onClick={load} disabled={status==='loading'} style={{
+          display:'flex',alignItems:'center',gap:6,fontSize:12,fontWeight:500,color:'#60a5fa',
+          background:'none',border:'1px solid #1e2330',borderRadius:7,padding:'7px 13px',
+          cursor:'pointer',opacity:status==='loading'?.5:1,outline:'none'}}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+            style={{animation:status==='loading'?'spin .8s linear infinite':'none'}}>
+            <path d="M21 12a9 9 0 11-6.219-8.56"/>
+          </svg>
+          {status==='loading'?'Loading…':'Refresh'}
+        </button>
+      </div>
+
+      {/* STATUS */}
+      <div style={{display:'flex',alignItems:'center',gap:7,padding:'0 16px 14px',fontSize:12,color:'#5a6070'}}>
+        <div style={{width:6,height:6,borderRadius:'50%',flexShrink:0,
+          background:status==='error'?'#ef4444':'#00e5a0',
+          animation:status==='loading'?'pulse 1.2s ease-in-out infinite':'none'}}/>
+        <span style={{color:status==='error'?'#ef4444':'#5a6070'}}>{info}</span>
+      </div>
+
+      {/* DEBUG LOG */}
+      {showLog && (
+        <div style={{margin:'0 16px 12px',background:'#111318',border:'1px solid #1e2330',
+          borderRadius:10,padding:12,fontSize:11,fontFamily:'monospace',
+          maxHeight:180,overflowY:'auto'}}>
+          {logs.map((l,i)=>(
+            <div key={i} style={{marginBottom:3,color:l.t==='ok'?'#00e5a0':'#ef4444'}}>{l.m}</div>
+          ))}
+        </div>
+      )}
+
+      {/* CARDS */}
+      <div style={{padding:'0 16px 40px',maxWidth:520,margin:'0 auto'}}>
+        {status==='loading' && items.length===0
+          ? Array.from({length:6},(_,i)=><Skeleton key={i}/>)
+          : filtered.length===0
+            ? <div style={{textAlign:'center',padding:'52px 20px',color:'#5a6070'}}>
+                <div style={{fontSize:38,marginBottom:12,opacity:.35}}>◌</div>
+                <div style={{fontSize:15,fontWeight:600,color:'#e8eaf0',marginBottom:7}}>
+                  {status==='error'?'Could not load':'Nothing here'}
+                </div>
+                <div style={{fontSize:13}}>
+                  {status==='error'?'Check connection and refresh':'Try another filter'}
+                </div>
+              </div>
+            : filtered.map((it,i)=><Card key={i} item={it} rank={i}/>)
+        }
+        {status==='done' && filtered.length>0 && (
+          <div style={{textAlign:'center',padding:'8px 0 16px',fontSize:11,color:'#2a3045',fontFamily:'monospace'}}>
+            <button onClick={()=>setShowLog(v=>!v)} style={{
+              background:'none',border:'1px solid #1e2330',borderRadius:5,
+              padding:'4px 10px',fontSize:10,color:'#5a6070',fontFamily:'monospace',cursor:'pointer'}}>
+              {showLog?'hide':'show'} debug log
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
